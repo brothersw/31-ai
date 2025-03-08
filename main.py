@@ -55,9 +55,9 @@ def run_round(players: list[Agent]):
         if to_end:
             break
 
-    print(game.deck)
-    print(game.discard)
-    for p in game.players:
+    print(game.state.deck)
+    print(game.state.discard)
+    for p in game.state.players:
         print(p.hand)
         print(score.score(p.hand))
 
