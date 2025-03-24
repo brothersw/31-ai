@@ -18,4 +18,4 @@ class Agent:
         raise NotImplementedError()
     
     def __repr__(self) -> str:
-        return f"{type(self)} [{self.lives}] holds: {self.hand}"
+        return f"{type(self)} [{self.lives}]"

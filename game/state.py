@@ -1,4 +1,3 @@
-from agents.agent import Agent
 from game.card import Card
 from game.card import Suit
 import random

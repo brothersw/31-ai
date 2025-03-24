@@ -12,7 +12,7 @@ class Card:
         self.suit: Suit = suit
         self.visible: bool = False
     
-    def get_neural_repr(self) -> (int, int):
+    def get_neural_repr(self) -> tuple[int, int]:
         if self.visible:
             return (self.suit.value, self.val)
         else:

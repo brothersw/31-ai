@@ -91,7 +91,7 @@ class Human(Agent):
         return ret
 
     def __repr__(self) -> str:
-        return f"{self.name} [{self.lives}] holds: {state.hands[state.turn]}"
+        return f"{self.name} [{self.lives}]"
 
 def _get_action(num: int) -> Action:
     match num:

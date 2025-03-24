@@ -1,6 +1,7 @@
 from game.game import Game
 from agents.human import Human
 from agents.agent import Agent
+from agents.random import Random
 from util import score
 
 # the most important part
@@ -30,21 +31,36 @@ b@J"Y@@@@@N@@@W;` 't@@@@@Qc`   `g@@@@@@Q!
 ''')
 
 def main():
-    print_menu()
-
-    run_game([Human("p1"), Human("p2")])
+    #run_game([Human("p1"), Human("p2")])
+    run_game([Random(), Random()])
 
 def run_game(players: list[Agent]):
-    while len(players) >= 1:
+    while len(players) > 1:
+        print_menu()
+
+        print("Starting a new round")
+        print("Current lives")
+        for i, p in enumerate(players):
+            print(f"\t{i}: {p.lives}")
+
         run_round(players) 
-        
-        # TODO: doesn't handle ties that end in everybody losing all of their lives
-        for player in players:
-            if player.lives <= 0:
-                players.remove(player)
+        check_lives(players)
 
     assert len(players) == 1
     print(f"The winner is: {players[0]}")
+
+# remove players who lost all their lives
+# if everyone lost, add 1 life to everyone and check again
+def check_lives(players: list[Agent]):
+    players_to_remove = [p for p in players if p.lives <= 0]
+    if len(players_to_remove) == len(players):
+        for p in players:
+            p.lives += 1
+        check_lives(players)
+        return
+    
+    for p in players_to_remove:
+        players.remove(p)
 
 # runs a full round of the game
 def run_round(players: list[Agent]):
@@ -54,14 +70,12 @@ def run_round(players: list[Agent]):
         to_end = game.pick_turn()
         if to_end:
             break
-
-    print(game.state.deck)
-    print(game.state.discard)
-    for p in game.state.players:
-        print(p.hand)
-        print(score.score(p.hand))
-
+    
     game.end_game()
+
+# the first agent is now the last agent, shuffling all agents forwards
+def cycle_agents(agents: list[Agent]):
+    agents.append(agents.pop(0))
 
 if __name__ == "__main__":
     main()
