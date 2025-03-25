@@ -14,8 +14,10 @@ class Random(Agent):
         action: Action = random.choice([Action.DRAW, Action.DRAW_DISCARD, Action.CALL])
         if action == Action.CALL:
             return (action, 0)
-        else:
+        elif action == Action.DRAW_DISCARD:
             return (action, random.randint(0, 2))
+        else:
+            return (action, random.randint(0, 3))
     
     def take_last_turn(self, state: State) -> tuple[Action, int]:
         action: Action = random.choice([Action.DRAW, Action.DRAW_DISCARD])

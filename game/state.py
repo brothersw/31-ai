@@ -7,6 +7,7 @@ class State:
         self.deck: list[Card] = self._create_deck()
         self.hands: list[list[Card]] = self._build_hands(num_players)
         self.discard: list[Card] = [self.deck.pop()]
+        self.discard[-1].visible = True
 
         self.turn: int = 0
         self.first_turn: bool = True
@@ -36,3 +37,6 @@ class State:
 
         random.shuffle(deck)
         return deck
+    
+    def __repr__(self) -> str:
+        return f"Turn: {self.turn}, Called: {self.called}\n Discard: {self.discard[-1]}, Hands: {self.hands}"
