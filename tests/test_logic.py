@@ -72,6 +72,3 @@ class TestGameLogic(unittest.TestCase):
     def test_call_action(self):
         self.game._take_action((Action.CALL, 0))
         self.assertEqual(self.game.state.called, self.game.state.turn)
-
-if __name__ == '__main__':
-    unittest.main()

@@ -1,9 +1,8 @@
-from game.card import Card
 from game.action import Action
 
 class Agent:
     def __init__(self):
-        # hand gets filled by the game
+        # hand gets filled by the game state
         self.lives: int = 3
     
     def take_turn(self, state) -> tuple[Action, int]:

@@ -6,7 +6,6 @@ from game.state import State
 from game.action import Action
 from game.card import Card
 import random
-import numpy as np
 
 # neural network to select the action to take
 class ActionNN(nn.Module):
@@ -110,7 +109,7 @@ class AIAgent(Agent):
             action = random.choice([Action.DRAW, Action.DRAW_DISCARD, Action.CALL])
         return (action, random.randint(0, 2))
 
-    # TODO: idk training, its wierd how I wan't to do it ig
+    # TODO: idk this training method b/c I'm not sure about to give rewards based on individual actions and not the entire game
     # what is here is just ai crap
     def train_action(self, state: State, action: Action, reward: float):
         """Train the action selection network"""

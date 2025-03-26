@@ -12,12 +12,6 @@ class Card:
         self.suit: Suit = suit
         self.visible: bool = False
     
-    def get_neural_repr(self) -> tuple[int, int]:
-        if self.visible:
-            return (self.suit.value, self.val)
-        else:
-            return (0, 0)
-
     def __repr__(self) -> str:
         char = ""
         match self.suit:

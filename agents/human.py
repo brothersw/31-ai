@@ -20,7 +20,7 @@ class Human(Agent):
             print("BAD INPUT")
             return self.take_turn(state)
         
-        act: Action = _get_action(act_n)
+        act: Action = self._get_action(act_n)
         
         print("")
 
@@ -50,7 +50,7 @@ class Human(Agent):
             print("BAD INPUT")
             return self.take_last_turn(state)
         
-        act = _get_action(act_n)
+        act = self._get_action(act_n)
         
         match act:
             case Action.DRAW:
@@ -93,13 +93,13 @@ class Human(Agent):
     def __repr__(self) -> str:
         return f"{self.name} [{self.lives}]"
 
-def _get_action(num: int) -> Action:
-    match num:
-        case 0:
-            return Action.DRAW
-        case 1:
-            return Action.DRAW_DISCARD
-        case 2:
-            return Action.CALL
-        case _:
-            raise ValueError()
+    def _get_action(self, num: int) -> Action:
+        match num:
+            case 0:
+                return Action.DRAW
+            case 1:
+                return Action.DRAW_DISCARD
+            case 2:
+                return Action.CALL
+            case _:
+                raise ValueError()
