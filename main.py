@@ -35,19 +35,20 @@ def main():
     run_game([Random(), Random()])
 
 def run_game(players: list[Agent]):
+    print_menu()
+    winner = run_game(players)
+
+    print(f"The winner is: {winner}")
+
+# runs a game and returns the winner
+def run_game(players: list[Agent]) -> Agent:
     while len(players) > 1:
-        print_menu()
-
-        print("Starting a new round")
-        print("Current lives")
-        for i, p in enumerate(players):
-            print(f"\t{i}: {p.lives}")
-
-        run_round(players) 
+        run_round(players)
         check_lives(players)
-
+    
     assert len(players) == 1
-    print(f"The winner is: {players[0]}")
+    
+    return players[0]
 
 # remove players who lost all their lives
 # if everyone lost, add 1 life to everyone and check again

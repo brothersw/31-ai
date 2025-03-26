@@ -43,6 +43,26 @@ class AIAgent(Agent):
         self.action_optimizer = torch.optim.Adam(self.action_model.parameters(), lr=0.001)
         self.swap_optimizer = torch.optim.Adam(self.swap_model.parameters(), lr=0.001)
         self.epsilon = epsilon
+
+    # save the model weights and optimizer states to a file
+    def save_checkpoint(self, path: str):
+        checkpoint = {
+            'action_model': self.action_model.state_dict(),
+            'swap_model': self.swap_model.state_dict(),
+            'action_optimizer': self.action_optimizer.state_dict(),
+            'swap_optimizer': self.swap_optimizer.state_dict(),
+            'epsilon': self.epsilon
+        }
+        torch.save(checkpoint, path)
+
+    # load the model weights and optimizer states from a file
+    def load_checkpoint(self, path: str):
+        checkpoint = torch.load(path)
+        self.action_model.load_state_dict(checkpoint['action_model'])
+        self.swap_model.load_state_dict(checkpoint['swap_model'])
+        self.action_optimizer.load_state_dict(checkpoint['action_optimizer'])
+        self.swap_optimizer.load_state_dict(checkpoint['swap_optimizer'])
+        self.epsilon = checkpoint['epsilon']
     
     def _encode_basic_state(self, state: State) -> torch.Tensor:
         return torch.cat((torch.tensor([state.first_turn, state.called], dtype=torch.bool), self._encode_cards(state.hands[state.turn] + [state.discard[-1]])))
@@ -79,19 +99,19 @@ class AIAgent(Agent):
             
             # If drawing from deck, we need to make a second decision
             if action == Action.DRAW:
-                discard_state = self._encode_swap_state(state, state.deck[-1])
-                position_values = self.swap_model(discard_state)
+                swap_tensor = self._encode_swap_state(state, state.deck[-1])
+                position_values = self.swap_model(swap_tensor)
                 position = torch.argmax(position_values).item()
                 return (action, position)
             elif action == Action.DRAW_DISCARD:
-                discard_state = self._encode_swap_state(state, state.discard[-1])
-                position_values = self.swap_model(discard_state)
+                swap_tensor = self._encode_swap_state(state, state.discard[-1])
+                position_values = self.swap_model(swap_tensor)
                 # mask invalid action
                 # can't discard the drawn card from the discard pile
                 position_values[3] = float('-inf')
                 position = torch.argmax(position_values).item()
                 return (action, position)
-            else:  # CALL
+            else: # CALL
                 return (action, 0)
 
     # first turn is handled in the state encoding
@@ -109,26 +129,13 @@ class AIAgent(Agent):
             action = random.choice([Action.DRAW, Action.DRAW_DISCARD, Action.CALL])
         return (action, random.randint(0, 2))
 
-    # TODO: idk this training method b/c I'm not sure about to give rewards based on individual actions and not the entire game
-    # what is here is just ai crap
-    def train_action(self, state: State, action: Action, reward: float):
-        """Train the action selection network"""
-        self.action_optimizer.zero_grad()
-        state_tensor = self._encode_basic_state(state)
-        action_values = self.action_model(state_tensor)
-        
-        target = torch.tensor([reward], dtype=torch.float32)
-        loss = F.mse_loss(action_values[action.value], target)
-        loss.backward()
-        self.action_optimizer.step()
+    # TODO: implement training
 
-    def train_swap(self, state: State, drawn_card: Card, position: int, reward: float):
-        """Train the card swapping network"""
-        self.swap_optimizer.zero_grad()
-        state_tensor = self._encode_swap_state(state, drawn_card)
-        position_values = self.swap_model(state_tensor)
-        
-        target = torch.tensor([reward], dtype=torch.float32)
-        loss = F.mse_loss(position_values[position], target)
-        loss.backward()
-        self.swap_optimizer.step()
+    # stores a state experience for training after a game
+    def store_experience(self, state: State, action: tuple[Action, int]):
+        return NotImplementedError()
+
+    # trains on an entire game based on the reward
+    # flushes the experience buffer
+    def train(self, reward: float):
+        return NotImplementedError()

@@ -77,6 +77,7 @@ class Game:
     # ends the game for a normal ending
     # the person with the least score loses a life
     # if the person who called is least, two lives are lost
+    # apply rewards to each player
     def end_game(self):
         assert self.state.called != -1
         
@@ -90,6 +91,10 @@ class Game:
 
             if loser[0].lives <= 0:
                 loser[0].lives = 0
+
+        rewards = score.get_rewards(losers, self.state.called)
+        for i, reward in enumerate(rewards):
+            self.players[i].train(reward)
 
     # returns a list (handling ties) contining tuples of (Agent, score) of those who lost
     def _find_losers(self) -> list[tuple[Agent, int]]:

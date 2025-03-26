@@ -15,6 +15,9 @@ class Agent:
     # remove calling logic
     def take_last_turn(self, state) -> tuple[Action, int]:
         raise NotImplementedError()
+
+    def train(self, reward: float):
+        pass
     
     def __repr__(self) -> str:
         return f"{type(self)} [{self.lives}]"
