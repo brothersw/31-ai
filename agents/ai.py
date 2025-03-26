@@ -10,7 +10,7 @@ import numpy as np
 
 # neural network to select the action to take
 class ActionNN(nn.Module):
-    def __init__(self, input_size: int = 52 * 4 + 2, hidden_size: int = 128):
+    def __init__(self, input_size: int = 40 * 4 + 2, hidden_size: int = 128):
         super().__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size, hidden_size)
@@ -24,7 +24,7 @@ class ActionNN(nn.Module):
 
 # neural network that takes the input cards and outputs the position to swap
 class SwapNN(nn.Module):
-    def __init__(self, input_size: int = 52 * 4, hidden_size: int = 128):
+    def __init__(self, input_size: int = 40 * 4, hidden_size: int = 128):
         super().__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size, hidden_size)
@@ -46,33 +46,20 @@ class AIAgent(Agent):
         self.epsilon = epsilon
     
     def _encode_basic_state(self, state: State) -> torch.Tensor:
-        return torch.tensor([state.first_turn, state.called], dtype=torch.bool) + self._encode_cards(state.hands[state.turn] + [state.discard[-1]])
+        return torch.cat((torch.tensor([state.first_turn, state.called], dtype=torch.bool), self._encode_cards(state.hands[state.turn] + [state.discard[-1]])))
 
     def _encode_swap_state(self, state: State, drawn_card: Card) -> torch.Tensor:
         return self._encode_cards(state.hands[state.turn] + [drawn_card])
     
+    # each cards is represented as a 40 bit value
     def _encode_cards(self, cards: list[Card]) -> torch.Tensor:
-        encoding = torch.zeros(len(cards) * 52, dtype=torch.bool)
+        encoding = torch.zeros(len(cards) * 40, dtype=torch.bool)
         
         for i, card in enumerate(cards):
             idx: int = card.val - 2
-            # handle all 4 of the 10s
-            if card.val == 10:
-                if encoding[i * 52 + card.suit.value * 13 + 8] == 0:
-                    idx = 8
-                elif encoding[i * 52 + card.suit.value * 13 + 9] == 0:
-                    idx = 9
-                elif encoding[i * 52 + card.suit.value * 13 + 10] == 0:
-                    idx = 10
-                elif encoding[i * 52 + card.suit.value * 13 + 11] == 0:
-                    # I hope this doesn't get wierd, but this bit of the input may not get used very much and so training could break down here
-                    idx = 11
-            elif card.val == 11:
-                idx = 12
+            idx += card.suit.value * 10
 
-            idx += card.suit.value * 13
-
-            encoding[i * 52 + idx] = 1
+            encoding[i * 40 + idx] = 1
         
         return encoding
 

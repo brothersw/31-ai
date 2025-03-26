@@ -1,10 +1,10 @@
 from enum import Enum
 
 class Suit(Enum):
-    SPADE = 1
-    CLUB = 2
-    DIAMOND = 3
-    HEART = 4
+    SPADE = 0
+    CLUB = 1
+    DIAMOND = 2
+    HEART = 3
 
 class Card:
     def __init__(self, val: int, suit: Suit):
