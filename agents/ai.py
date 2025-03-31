@@ -7,39 +7,46 @@ from game.action import Action
 from game.card import Card
 import random
 
+from util import probability
+
 # neural network to select the action to take
 class ActionNN(nn.Module):
-    def __init__(self, input_size: int = 40 * 4 + 2, hidden_size: int = 128):
+    def __init__(self, input_size: int = 40 * 4 + 4 + 2, hidden_size: int = 128 * 2):
         super().__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, hidden_size)
         # Output: DRAW, DRAW_DISCARD, CALL
-        self.fc3 = nn.Linear(hidden_size, 3)
+        self.fc4 = nn.Linear(hidden_size, 3)
     
     def forward(self, x):
         x = F.leaky_relu(self.fc1(x))
         x = F.leaky_relu(self.fc2(x))
-        return self.fc3(x)
+        x = F.leaky_relu(self.fc3(x))
+        return self.fc4(x)
 
 # neural network that takes the input cards and outputs the position to swap
 class SwapNN(nn.Module):
-    def __init__(self, input_size: int = 40 * 4, hidden_size: int = 128):
+    def __init__(self, input_size: int = 40 * 4 + 4, hidden_size: int = 128 * 2):
         super().__init__()
         self.fc1: nn.Linear = nn.Linear(input_size, hidden_size)
         self.fc2: nn.Linear = nn.Linear(hidden_size, hidden_size)
+        self.fc3: nn.Linear = nn.Linear(hidden_size, hidden_size)
         # Output: which card to swap (0, 1, 2) or to not swap (3)
-        self.fc3: nn.Linear = nn.Linear(hidden_size, 4)
+        self.fc4: nn.Linear = nn.Linear(hidden_size, 4)
     
     def forward(self, x):
         x = F.leaky_relu(self.fc1(x))
         x = F.leaky_relu(self.fc2(x))
-        return self.fc3(x)
+        x = F.leaky_relu(self.fc3(x))
+        return self.fc4(x)
 
 class AIAgent(Agent):
-    def __init__(self, epsilon: float = 0.1):
+    # TODO: fix adding in the models as parameters
+    def __init__(self, action_nn: ActionNN = ActionNN(), swap_nn: SwapNN = SwapNN(), epsilon: float = 0.05):
         super().__init__()
-        self.action_model: ActionNN = ActionNN()
-        self.swap_model: SwapNN = SwapNN()
+        self.action_model: ActionNN = action_nn
+        self.swap_model: SwapNN = swap_nn
         self.action_optimizer: torch.optim.Adam = torch.optim.Adam(self.action_model.parameters(), lr=0.001)
         self.swap_optimizer: torch.optim.Adam = torch.optim.Adam(self.swap_model.parameters(), lr=0.001)
         self.epsilon: float = epsilon
@@ -66,10 +73,17 @@ class AIAgent(Agent):
         self.epsilon = checkpoint['epsilon']
     
     def _encode_basic_state(self, state: State) -> torch.Tensor:
-        return torch.cat((torch.tensor([state.first_turn, state.called], dtype=torch.float), self._encode_cards(state.hands[state.turn] + [state.discard[-1]])))
+        return torch.cat((
+            self._encode_cards(state.hands[state.turn] + [state.discard[-1]]),
+            torch.tensor(probability.expected_values(state), dtype=torch.float),
+            torch.tensor([state.first_turn, state.called], dtype=torch.float) 
+        ))
 
     def _encode_swap_state(self, state: State, drawn_card: Card) -> torch.Tensor:
-        return self._encode_cards(state.hands[state.turn] + [drawn_card])
+        return torch.cat((
+            self._encode_cards(state.hands[state.turn] + [drawn_card]),
+            torch.tensor(probability.expected_values(state), dtype=torch.float)
+        ))
     
     # each cards is represented as a 40 bit value
     def _encode_cards(self, cards: list[Card]) -> torch.Tensor:
@@ -86,20 +100,22 @@ class AIAgent(Agent):
     def take_turn(self, state: State) -> tuple[Action, int]:
         target_action: tuple[Action, int] = None
 
+        state_tensor: torch.Tensor = self._encode_basic_state(state)
+        swap_tensor: torch.Tensor | None = None
+
         if random.random() < self.epsilon:
-            target_action = self._random_action(state)
-            #return self._random_action(state)
+            # don't save experience for random actions TODO: do I wan't to do this?
+            return self._random_action(state)
         
         with torch.no_grad():
-            state_tensor = self._encode_basic_state(state)
-            action_values = self.action_model(state_tensor)
+            action_values: torch.Tensor = self.action_model(state_tensor)
             
             # mask invalid action
             # can't call if already called
             if state.called != -1:
                 action_values[Action.CALL.value] = float('-inf')
-            
-            action = Action(torch.argmax(action_values).item())
+
+            action: Action = Action(torch.argmax(action_values).item())
             
             # If drawing from deck, we need to make a second decision
             if action == Action.DRAW:
@@ -107,7 +123,6 @@ class AIAgent(Agent):
                 position_values = self.swap_model(swap_tensor)
                 position = torch.argmax(position_values).item()
                 target_action = (action, position)
-                #return (action, position)
             elif action == Action.DRAW_DISCARD:
                 swap_tensor = self._encode_swap_state(state, state.discard[-1])
                 position_values = self.swap_model(swap_tensor)
@@ -116,13 +131,12 @@ class AIAgent(Agent):
                 position_values[3] = float('-inf')
                 position = torch.argmax(position_values).item()
                 target_action = (action, position)
-                #return (action, position)
             else: # CALL
                 target_action = (action, 0)
-                #return (action, 0)
         
         assert target_action is not None
-        self.store_experience(state, target_action)
+        self.store_experience(state_tensor, target_action, swap_tensor)
+
         return target_action
 
     # first turn is handled in the state encoding
@@ -134,11 +148,18 @@ class AIAgent(Agent):
         return self.take_turn(state)
     
     def _random_action(self, state: State) -> tuple[Action, int]:
-        if state.called:
+        if state.called != -1:
             action = random.choice([Action.DRAW, Action.DRAW_DISCARD])
         else:
             action = random.choice([Action.DRAW, Action.DRAW_DISCARD, Action.CALL])
-        return (action, random.randint(0, 2))
+
+        idx = 0        
+        if action == Action.DRAW:
+            idx = random.randint(0, 3)
+        elif action == Action.DRAW_DISCARD:
+            idx = random.randint(0, 2)
+        
+        return (action, idx)
 
     # TODO: implement training
 
@@ -146,14 +167,7 @@ class AIAgent(Agent):
         self.experiences = []
 
     # stores a state experience for training after a game
-    def store_experience(self, state: State, action: tuple[Action, int]):
-        state_tensor: torch.Tensor = self._encode_basic_state(state)
-        # If the action involves drawing, store the swap state encoding
-        swap_tensor: torch.Tensor = None
-        if action[0] in [Action.DRAW, Action.DRAW_DISCARD]:
-            drawn_card = state.deck[-1] if action[0] == Action.DRAW else state.discard[-1]
-            swap_tensor = self._encode_swap_state(state, drawn_card)
-        
+    def store_experience(self, state_tensor: torch.Tensor, action: tuple[Action, int], swap_tensor: torch.Tensor | None):
         self.experiences.append({
             'state': state_tensor,
             'swap_state': swap_tensor,
@@ -164,6 +178,7 @@ class AIAgent(Agent):
     # trains on an entire game based on the reward
     # flushes the experience buffer
     def train(self, reward: float):
+        #print("Starting training")
         # Skip if no experiences to train on
         if not self.experiences:
             return
@@ -211,5 +226,6 @@ class AIAgent(Agent):
             swap_loss.backward()
             self.swap_optimizer.step()
         
+        #print("Training complete")
         # Clear experiences after training
         self.flush_experience()

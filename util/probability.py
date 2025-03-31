@@ -13,17 +13,18 @@ def expected_value(suit: Suit, state: State) -> float:
             count += card.val
             cards += 1
     
-    for card in [].join(state.hands):
-        if card.suit == suit:
-            if card.visible:
-                count += card.val
-                cards += 1
-
+    for hand in state.hands:
+        for card in hand:
+            if card.suit == suit:
+                if card.visible:
+                    count += card.val
+                    cards += 1
+    
     total_count = 95 # 2 + 3 + ... + 10 + 10 + 10 + 10 + 11
     total_cards = 13 # 52 / 4
 
     return (total_count - count) / (total_cards - cards)
 
-# returns a dictionary of the expected value for each suit
-def expected_values(state: State) -> dict[Suit, float]:
-    return {suit: expected_value(suit, state) for suit in Suit}
+# returns a list of the expected value for each suit in the order of the Suit enum
+def expected_values(state: State) -> list[float]:
+    return [expected_value(suit, state) for suit in Suit]

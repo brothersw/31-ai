@@ -1,3 +1,4 @@
+from matplotlib import pyplot as plt
 from agents.ai import AIAgent
 from game.game import Game
 from agents.human import Human
@@ -35,7 +36,7 @@ def main():
     #host_game([Human("p1"), Human("p2")])
     #host_game([Random(), Random()])
 
-    run_training([AIAgent(), AIAgent(), Random(), Random()])
+    run_training([AIAgent(), Random(), Random()])
 
 
 def host_game(players: list[Agent]):
@@ -70,30 +71,49 @@ def check_lives(players: list[Agent]):
 
 def run_training(players: list[Agent]):
     print_menu()
-    active_players = players
+    # TODO: fix random freezing
+    active_players = players.copy() # XXX: do I need to copy?
     wins = [0 for i in range(len(players))]
-    for i in range(1000):
+    global_wins = wins.copy()
+
+    win_history = [[] for _ in players]
+
+    for i in range(200):
         revives = 0
-        for _ in range(100):
+        for _ in range(1000):
             # Get players with lives remaining
             active_players = [p for p in active_players if p.lives > 0]
-            
-            # Only run round if more than 1 player has lives
-            if len(active_players) > 1:
-                run_round(active_players)
-                cycle_agents(active_players)
-            # If only 1 player remains, revive everyone and continue
-            else:
+            if len(active_players) <= 1:
                 assert len(active_players) == 1
+
                 wins[players.index(active_players[0])] += 1
+                global_wins[players.index(active_players[0])] += 1
+
                 for player in players:
                     player.revive()
-                    active_players = players
+                    active_players = players.copy()  # XXX: do I need to copy?
+            
+            # Only run round if more than 1 player has lives
+            run_round(active_players)
+            cycle_agents(active_players)
+            # If only 1 player remains, revive everyone and continue
         
-        win_percentages = [f"{(x / 10):.2%}" for x in wins]
-        print(f"Win percentages for round {i}: {', '.join(win_percentages)}")
-        wins = [0 for i in range(len(players))]
-                    
+        print(f"Wins for batch {i}: {wins}")
+        for i, w in enumerate(wins):
+            win_history[i].append(w)
+        
+        wins = [0] * len(players)
+    
+    print(f"Global wins: {global_wins}")
+
+    for i, w in enumerate(win_history):
+        plt.plot(range(200), w, label=f"Player {i}")
+    
+    plt.xlabel('Batch')
+    plt.ylabel('Wins in batch')
+    plt.grid(True)
+    plt.show()
+
 # runs a full round of the game
 def run_round(players: list[Agent]):
     game = Game(players)

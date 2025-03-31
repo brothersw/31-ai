@@ -11,14 +11,21 @@ class Random(Agent):
         return self.take_turn(state)
 
     def take_turn(self, state: State) -> tuple[Action, int]:
-        action: Action = random.choice([Action.DRAW, Action.DRAW_DISCARD, Action.CALL])
-        if action == Action.CALL:
-            return (action, 0)
-        elif action == Action.DRAW_DISCARD:
-            return (action, random.randint(0, 2))
-        else:
-            return (action, random.randint(0, 3))
-    
+        return self._random_action(state)
+
     def take_last_turn(self, state: State) -> tuple[Action, int]:
-        action: Action = random.choice([Action.DRAW, Action.DRAW_DISCARD])
-        return (action, random.randint(0, 2))
+        return self.take_turn(state)
+
+    def _random_action(self, state: State) -> tuple[Action, int]:
+        if state.called != -1:
+            action = random.choice([Action.DRAW, Action.DRAW_DISCARD])
+        else:
+            action = random.choice([Action.DRAW, Action.DRAW_DISCARD, Action.CALL])
+
+        idx = 0        
+        if action == Action.DRAW:
+            idx = random.randint(0, 3)
+        elif action == Action.DRAW_DISCARD:
+            idx = random.randint(0, 2)
+        
+        return (action, idx)
