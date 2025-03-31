@@ -1,6 +1,6 @@
 from enum import Enum
 
 class Action(Enum):
-    DRAW = 1
-    DRAW_DISCARD = 2
-    CALL = 3
+    DRAW = 0
+    DRAW_DISCARD = 1
+    CALL = 2

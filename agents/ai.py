@@ -25,10 +25,10 @@ class ActionNN(nn.Module):
 class SwapNN(nn.Module):
     def __init__(self, input_size: int = 40 * 4, hidden_size: int = 128):
         super().__init__()
-        self.fc1 = nn.Linear(input_size, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc1: nn.Linear = nn.Linear(input_size, hidden_size)
+        self.fc2: nn.Linear = nn.Linear(hidden_size, hidden_size)
         # Output: which card to swap (0, 1, 2) or to not swap (3)
-        self.fc3 = nn.Linear(hidden_size, 4)
+        self.fc3: nn.Linear = nn.Linear(hidden_size, 4)
     
     def forward(self, x):
         x = F.leaky_relu(self.fc1(x))
@@ -38,11 +38,12 @@ class SwapNN(nn.Module):
 class AIAgent(Agent):
     def __init__(self, epsilon: float = 0.1):
         super().__init__()
-        self.action_model = ActionNN()
-        self.swap_model = SwapNN()
-        self.action_optimizer = torch.optim.Adam(self.action_model.parameters(), lr=0.001)
-        self.swap_optimizer = torch.optim.Adam(self.swap_model.parameters(), lr=0.001)
-        self.epsilon = epsilon
+        self.action_model: ActionNN = ActionNN()
+        self.swap_model: SwapNN = SwapNN()
+        self.action_optimizer: torch.optim.Adam = torch.optim.Adam(self.action_model.parameters(), lr=0.001)
+        self.swap_optimizer: torch.optim.Adam = torch.optim.Adam(self.swap_model.parameters(), lr=0.001)
+        self.epsilon: float = epsilon
+        self.experiences: list[dict[str, torch.Tensor | Action | int | None]] = []
 
     # save the model weights and optimizer states to a file
     def save_checkpoint(self, path: str):
@@ -65,26 +66,29 @@ class AIAgent(Agent):
         self.epsilon = checkpoint['epsilon']
     
     def _encode_basic_state(self, state: State) -> torch.Tensor:
-        return torch.cat((torch.tensor([state.first_turn, state.called], dtype=torch.bool), self._encode_cards(state.hands[state.turn] + [state.discard[-1]])))
+        return torch.cat((torch.tensor([state.first_turn, state.called], dtype=torch.float), self._encode_cards(state.hands[state.turn] + [state.discard[-1]])))
 
     def _encode_swap_state(self, state: State, drawn_card: Card) -> torch.Tensor:
         return self._encode_cards(state.hands[state.turn] + [drawn_card])
     
     # each cards is represented as a 40 bit value
     def _encode_cards(self, cards: list[Card]) -> torch.Tensor:
-        encoding = torch.zeros(len(cards) * 40, dtype=torch.bool)
+        encoding = torch.zeros(len(cards) * 40, dtype=torch.float)
         
         for i, card in enumerate(cards):
             idx: int = card.val - 2
             idx += card.suit.value * 10
 
-            encoding[i * 40 + idx] = 1
+            encoding[i * 40 + idx] = 1.0
         
         return encoding
 
     def take_turn(self, state: State) -> tuple[Action, int]:
+        target_action: tuple[Action, int] = None
+
         if random.random() < self.epsilon:
-            return self._random_action(state)
+            target_action = self._random_action(state)
+            #return self._random_action(state)
         
         with torch.no_grad():
             state_tensor = self._encode_basic_state(state)
@@ -92,7 +96,7 @@ class AIAgent(Agent):
             
             # mask invalid action
             # can't call if already called
-            if state.called:
+            if state.called != -1:
                 action_values[Action.CALL.value] = float('-inf')
             
             action = Action(torch.argmax(action_values).item())
@@ -102,7 +106,8 @@ class AIAgent(Agent):
                 swap_tensor = self._encode_swap_state(state, state.deck[-1])
                 position_values = self.swap_model(swap_tensor)
                 position = torch.argmax(position_values).item()
-                return (action, position)
+                target_action = (action, position)
+                #return (action, position)
             elif action == Action.DRAW_DISCARD:
                 swap_tensor = self._encode_swap_state(state, state.discard[-1])
                 position_values = self.swap_model(swap_tensor)
@@ -110,9 +115,15 @@ class AIAgent(Agent):
                 # can't discard the drawn card from the discard pile
                 position_values[3] = float('-inf')
                 position = torch.argmax(position_values).item()
-                return (action, position)
+                target_action = (action, position)
+                #return (action, position)
             else: # CALL
-                return (action, 0)
+                target_action = (action, 0)
+                #return (action, 0)
+        
+        assert target_action is not None
+        self.store_experience(state, target_action)
+        return target_action
 
     # first turn is handled in the state encoding
     def take_first_turn(self, state: State) -> tuple[Action, int]:
@@ -131,11 +142,74 @@ class AIAgent(Agent):
 
     # TODO: implement training
 
+    def flush_experience(self):
+        self.experiences = []
+
     # stores a state experience for training after a game
     def store_experience(self, state: State, action: tuple[Action, int]):
-        return NotImplementedError()
+        state_tensor: torch.Tensor = self._encode_basic_state(state)
+        # If the action involves drawing, store the swap state encoding
+        swap_tensor: torch.Tensor = None
+        if action[0] in [Action.DRAW, Action.DRAW_DISCARD]:
+            drawn_card = state.deck[-1] if action[0] == Action.DRAW else state.discard[-1]
+            swap_tensor = self._encode_swap_state(state, drawn_card)
+        
+        self.experiences.append({
+            'state': state_tensor,
+            'swap_state': swap_tensor,
+            'action': action[0],
+            'position': action[1]
+        })
 
     # trains on an entire game based on the reward
     # flushes the experience buffer
     def train(self, reward: float):
-        return NotImplementedError()
+        # Skip if no experiences to train on
+        if not self.experiences:
+            return
+        
+        # Calculate discounted rewards for each step
+        gamma: float = 0.99  # discount factor
+        discounted_rewards: list[float] = []
+        running_reward: float = reward
+        for _ in range(len(self.experiences)):
+            discounted_rewards.insert(0, running_reward)
+            running_reward *= gamma
+
+        # Convert rewards to tensor
+        rewards: torch.Tensor = torch.tensor(discounted_rewards, dtype=torch.float32)
+        
+        # Train action network
+        action_states: torch.Tensor = torch.stack([exp['state'] for exp in self.experiences])
+        action_outputs: torch.Tensor = self.action_model(action_states)
+        action_targets: torch.Tensor = torch.zeros_like(action_outputs)
+        for i, exp in enumerate(self.experiences):
+            action_targets[i][exp['action'].value] = rewards[i]
+        
+        action_loss: torch.Tensor = F.mse_loss(action_outputs, action_targets)
+        self.action_optimizer.zero_grad()
+        action_loss.backward()
+        self.action_optimizer.step()
+        
+        # Train swap network
+        # Filter only for experiences that involved drawing
+        swap_experiences: list[tuple[torch.Tensor, int, float]] = [
+            (exp['swap_state'], exp['position'], reward)
+            for exp, reward in zip(self.experiences, discounted_rewards)
+            if exp['swap_state'] is not None and isinstance(exp['action'], Action)
+        ]
+        
+        if swap_experiences:
+            swap_states = torch.stack([exp[0] for exp in swap_experiences])
+            swap_outputs = self.swap_model(swap_states)
+            swap_targets = torch.zeros_like(swap_outputs)
+            for i, exp in enumerate(swap_experiences):
+                swap_targets[i][exp[1]] = exp[2]
+            
+            swap_loss = F.mse_loss(swap_outputs, swap_targets)
+            self.swap_optimizer.zero_grad()
+            swap_loss.backward()
+            self.swap_optimizer.step()
+        
+        # Clear experiences after training
+        self.flush_experience()

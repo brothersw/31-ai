@@ -1,3 +1,4 @@
+from agents.ai import AIAgent
 from game.game import Game
 from agents.human import Human
 from agents.agent import Agent
@@ -31,10 +32,13 @@ b@J"Y@@@@@N@@@W;` 't@@@@@Qc`   `g@@@@@@Q!
 ''')
 
 def main():
-    #run_game([Human("p1"), Human("p2")])
-    run_game([Random(), Random()])
+    #host_game([Human("p1"), Human("p2")])
+    #host_game([Random(), Random()])
 
-def run_game(players: list[Agent]):
+    run_training([AIAgent(), AIAgent(), Random(), Random()])
+
+
+def host_game(players: list[Agent]):
     print_menu()
     winner = run_game(players)
 
@@ -45,6 +49,7 @@ def run_game(players: list[Agent]) -> Agent:
     while len(players) > 1:
         run_round(players)
         check_lives(players)
+        cycle_agents(players)
     
     assert len(players) == 1
     
@@ -63,6 +68,32 @@ def check_lives(players: list[Agent]):
     for p in players_to_remove:
         players.remove(p)
 
+def run_training(players: list[Agent]):
+    print_menu()
+    active_players = players
+    wins = [0 for i in range(len(players))]
+    for i in range(1000):
+        revives = 0
+        for _ in range(100):
+            # Get players with lives remaining
+            active_players = [p for p in active_players if p.lives > 0]
+            
+            # Only run round if more than 1 player has lives
+            if len(active_players) > 1:
+                run_round(active_players)
+                cycle_agents(active_players)
+            # If only 1 player remains, revive everyone and continue
+            else:
+                assert len(active_players) == 1
+                wins[players.index(active_players[0])] += 1
+                for player in players:
+                    player.revive()
+                    active_players = players
+        
+        win_percentages = [f"{(x / 10):.2%}" for x in wins]
+        print(f"Win percentages for round {i}: {', '.join(win_percentages)}")
+        wins = [0 for i in range(len(players))]
+                    
 # runs a full round of the game
 def run_round(players: list[Agent]):
     game = Game(players)

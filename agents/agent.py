@@ -5,6 +5,9 @@ class Agent:
         # hand gets filled by the game state
         self.lives: int = 3
     
+    def revive(self):
+        self.lives = 3
+    
     def take_turn(self, state) -> tuple[Action, int]:
         raise NotImplementedError()
     
