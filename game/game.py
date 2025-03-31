@@ -4,8 +4,6 @@ from game.action import Action
 from game.state import State
 from util import score
 
-# TODO: unhiding cards is broken
-
 class Game:
     def __init__(self, players: list[Agent]):
         self.state: State = State(len(players))
@@ -87,8 +85,10 @@ class Game:
     # apply rewards to each player
     def end_game(self):
         assert self.state.called != -1
+
+        scores: list[tuple[Agent, int]] = [(p, score.score(self.state.hands[i])) for i, p in enumerate(self.players)]
         
-        losers: list[tuple[Agent, int]] = self._find_losers()
+        losers: list[tuple[Agent, int]] = self._find_losers(scores)
         # print(f"The losers are {losers}")
         for loser in losers:
             if loser[0] == self.players[self.state.called]:
@@ -104,30 +104,27 @@ class Game:
             for p in self.players:
                 p.lives = min(p.lives + 1, 3)
 
-        # TODO: remove extra training after I am done with training
-        rewards = score.get_rewards(losers, self.state.called)
+        rewards = score.get_rewards(scores, self.state.called)
         for i, reward in enumerate(rewards):
             self.players[i].train(reward)
-
+        
     # returns a list (handling ties) contining tuples of (Agent, score) of those who lost
-    def _find_losers(self) -> list[tuple[Agent, int]]:
+    def _find_losers(self, scores: list[tuple[Agent, int]]) -> list[tuple[Agent, int]]:
         worst: list[tuple[Agent, int]] = [(Agent(), 100)]
-        for i, p in enumerate(self.players):
-            s = score.score(self.state.hands[i])
-            if s == 31:
-                return self._find_losers_31()
-            elif s < worst[0][1]:
-                worst = [(p, s)]
-            elif s == worst[0][1]:
-                worst.append((p, s))
+        for i, p in enumerate(scores):
+            if p[1] == 31:
+                return self._find_losers_31(scores)
+            elif p[1] < worst[0][1]:
+                worst = [p]
+            elif p[1] == worst[0][1]:
+                worst.append(p)
 
         return worst
 
     # returns all players who don't have a score of 31
-    def _find_losers_31(self) -> list[tuple[Agent, int]]:
+    def _find_losers_31(self, scores: list[tuple[Agent, int]]) -> list[tuple[Agent, int]]:
         losers: list[tuple[Agent, int]] = []
-        for i, p in enumerate(self.players):
-            s = score.score(self.state.hands[i])
-            if s != 31:
-                losers.append((p, s))
+        for i, p in enumerate(scores):
+            if p[1] != 31:
+                losers.append(p)
         return losers

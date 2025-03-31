@@ -71,15 +71,14 @@ def check_lives(players: list[Agent]):
 
 def run_training(players: list[Agent]):
     print_menu()
-    # TODO: fix random freezing
     active_players = players.copy() # XXX: do I need to copy?
     wins = [0 for i in range(len(players))]
     global_wins = wins.copy()
 
     win_history = [[] for _ in players]
-
-    for i in range(200):
-        revives = 0
+    
+    batches = 100
+    for i in range(batches):
         for _ in range(1000):
             # Get players with lives remaining
             active_players = [p for p in active_players if p.lives > 0]
@@ -106,13 +105,16 @@ def run_training(players: list[Agent]):
     
     print(f"Global wins: {global_wins}")
 
+    #players[0].plot_metrics()
+    
     for i, w in enumerate(win_history):
-        plt.plot(range(200), w, label=f"Player {i}")
+        plt.plot(range(batches), w, label=f"Player {i}")
     
     plt.xlabel('Batch')
     plt.ylabel('Wins in batch')
     plt.grid(True)
     plt.show()
+
 
 # runs a full round of the game
 def run_round(players: list[Agent]):

@@ -9,6 +9,69 @@ import random
 
 from util import probability
 
+class TrainingMetrics:
+    def __init__(self):
+        self.action_losses: list[float] = []
+        self.swap_losses: list[float] = []
+        self.rewards: list[float] = []
+        self.episode_lengths: list[int] = []
+        
+    def add_metrics(self, action_loss: float | None, swap_loss: float | None, reward: float, episode_length: int):
+        if action_loss is not None:
+            self.action_losses.append(action_loss.detach().item())
+        else:
+            self.action_losses.append(0.0)
+        
+        if swap_loss is not None:
+            self.swap_losses.append(swap_loss.detach().item())
+        else:
+            self.swap_losses.append(0.0)
+        
+        self.rewards.append(reward)
+        self.episode_lengths.append(episode_length)
+    
+    def plot_metrics(self):
+        import matplotlib.pyplot as plt
+
+        # Create figure with subplots
+        fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(10, 12))
+        fig.suptitle('Training Metrics')
+
+        # Plot action losses
+        if self.action_losses:
+            ax1.plot(self.action_losses, label='Action Loss')
+            ax1.set_ylabel('Loss')
+            ax1.set_title('Action Network Loss')
+            ax1.grid(True)
+            ax1.legend()
+
+        # Plot swap losses 
+        if self.swap_losses:
+            ax2.plot(self.swap_losses, label='Swap Loss')
+            ax2.set_ylabel('Loss')
+            ax2.set_title('Swap Network Loss')
+            ax2.grid(True)
+            ax2.legend()
+
+        # Plot rewards
+        if self.rewards:
+            ax3.plot(self.rewards, label='Reward')
+            ax3.set_ylabel('Reward')
+            ax3.set_title('Episode Rewards')
+            ax3.grid(True)
+            ax3.legend()
+
+        # Plot episode lengths
+        if self.episode_lengths:
+            ax4.plot(self.episode_lengths, label='Length')
+            ax4.set_ylabel('Steps')
+            ax4.set_title('Episode Lengths')
+            ax4.grid(True)
+            ax4.legend()
+
+        plt.tight_layout()
+        plt.show()
+
 # neural network to select the action to take
 class ActionNN(nn.Module):
     def __init__(self, input_size: int = 40 * 4 + 4 + 2, hidden_size: int = 128 * 2):
@@ -42,15 +105,17 @@ class SwapNN(nn.Module):
         return self.fc4(x)
 
 class AIAgent(Agent):
-    # TODO: fix adding in the models as parameters
+    # TODO: fix adding in the models as parameters in order to use multiple agents in training while sharing the same models
     def __init__(self, action_nn: ActionNN = ActionNN(), swap_nn: SwapNN = SwapNN(), epsilon: float = 0.05):
         super().__init__()
         self.action_model: ActionNN = action_nn
         self.swap_model: SwapNN = swap_nn
-        self.action_optimizer: torch.optim.Adam = torch.optim.Adam(self.action_model.parameters(), lr=0.001)
-        self.swap_optimizer: torch.optim.Adam = torch.optim.Adam(self.swap_model.parameters(), lr=0.001)
+        self.action_optimizer: torch.optim.Adam = torch.optim.Adam(self.action_model.parameters(), lr=0.0003)
+        self.swap_optimizer: torch.optim.Adam = torch.optim.Adam(self.swap_model.parameters(), lr=0.0003)
         self.epsilon: float = epsilon
         self.experiences: list[dict[str, torch.Tensor | Action | int | None]] = []
+
+        self.metrics: TrainingMetrics = TrainingMetrics()
 
     # save the model weights and optimizer states to a file
     def save_checkpoint(self, path: str):
@@ -184,7 +249,8 @@ class AIAgent(Agent):
             return
         
         # Calculate discounted rewards for each step
-        gamma: float = 0.99  # discount factor
+        # each past experience is less valuable than the more recent ones to the final reward
+        gamma: float = 0.98  # discount factor
         discounted_rewards: list[float] = []
         running_reward: float = reward
         for _ in range(len(self.experiences)):
@@ -193,6 +259,7 @@ class AIAgent(Agent):
 
         # Convert rewards to tensor
         rewards: torch.Tensor = torch.tensor(discounted_rewards, dtype=torch.float32)
+        # XXX: should I normalize the rewards? idk if that is actually a good idea
         
         # Train action network
         action_states: torch.Tensor = torch.stack([exp['state'] for exp in self.experiences])
@@ -211,9 +278,12 @@ class AIAgent(Agent):
         swap_experiences: list[tuple[torch.Tensor, int, float]] = [
             (exp['swap_state'], exp['position'], reward)
             for exp, reward in zip(self.experiences, discounted_rewards)
-            if exp['swap_state'] is not None and isinstance(exp['action'], Action)
+            if exp['swap_state'] is not None
         ]
         
+        # expand swap loss scope for metrics
+        swap_loss: torch.Tensor | None = None
+
         if swap_experiences:
             swap_states = torch.stack([exp[0] for exp in swap_experiences])
             swap_outputs = self.swap_model(swap_states)
@@ -226,6 +296,11 @@ class AIAgent(Agent):
             swap_loss.backward()
             self.swap_optimizer.step()
         
-        #print("Training complete")
+        # I don't always want to save the metrics
+        # self.metrics.add_metrics(action_loss, swap_loss, reward, len(self.experiences))
+        
         # Clear experiences after training
         self.flush_experience()
+    
+    def plot_metrics(self):
+        self.metrics.plot_metrics()

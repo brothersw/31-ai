@@ -20,30 +20,45 @@ def get_rewards(players: list[tuple[Agent, int]], caller: int) -> list[float]:
     # Find the lowest score and its index
     scores = [score for _, score in players]
     min_score = min(scores)
+    max_score = max(scores)
     
     rewards = []
     for i, (agent, player_score) in enumerate(players):
-        # Base reward is the difference between this player's score and the lowest score
-        reward = (player_score - min_score) * 0.1
+        reward = 0.0
         
-        # If this player has the lowest score
+        # Normalize score difference to be between 0 and 1
+        if min_score == max_score:
+            score_diff = 0.0
+        else:
+            score_diff = (player_score - min_score) / (max_score - min_score)
+        reward += score_diff * 5.0  # performance relative to min_score
+        
         if player_score == min_score:
-            # Double negative reward if they were the caller
             if i == caller:
-                reward = -2
+                # Heavily penalize calling and losing
+                reward -= 5.0
             else:
-                reward = -1
-        # increase reward if the player got 31 (making all other players lose a life)
+                # Regular penalty for losing
+                reward -= 2.0
         elif player_score == 31:
-            reward += 5
-        # Add bonus reward for the caller if they weren't the loser
-        elif player_score > min_score and i == caller:
-            reward += 1.0
+            # Significant reward for achieving perfect score
+            reward += 10.0
+        elif i == caller and player_score > min_score:
+            # Reward for successful call based on margin of victory
+            reward += 1.0 * score_diff
         
-        # exaspertabe negative reward if the player is out of the game
+        # Progressive penalties based on lives lost
+        lives_penalty = (3 - agent.lives) * -0.5
+        reward += lives_penalty
+        
+        # Game-ending states
         if agent.lives <= 0:
-            reward += -5
-            
+            reward -= 2.0  # penalty for being eliminated
+        
+        # Small bonus for staying alive
+        if agent.lives > 0:
+            reward += 0.5
+        
         rewards.append(reward)
     
     return rewards
