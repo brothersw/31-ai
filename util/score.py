@@ -26,7 +26,7 @@ def get_rewards(players: list[tuple[Agent, int]], caller: int) -> list[float]:
     for i, (agent, player_score) in enumerate(players):
         reward = 0.0
         
-        # Normalize score difference to be between 0 and 1
+        # Find a normalized score difference to be between 0 and 1 between the min and max score
         if min_score == max_score:
             score_diff = 0.0
         else:

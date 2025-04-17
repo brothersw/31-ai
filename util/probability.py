@@ -24,6 +24,7 @@ def expected_value(suit: Suit, state: State) -> float:
                     count += card.val
                     cards += 1
     
+    # TODO: fix me, this isn't total expected value from the deck (doesn't account for what other cards were seen)
     return (total_count - count) / (total_cards - cards)
 
 # returns a list of the expected value for each suit in the order of the Suit enum

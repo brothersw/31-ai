@@ -74,23 +74,34 @@ class TrainingMetrics:
 
 # neural network to select the action to take
 class ActionNN(nn.Module):
-    def __init__(self, input_size: int = 40 * 4 + 4 + 2, hidden_size: int = 128 * 2):
+    def __init__(self, input_size: int = 4 * 4 + 4 + 2 + 4 * 6, hidden_size: int = 256):
+        # input is 
+        # 3 hand cards
+        # 1 top discard card
+        # 4 expected values (1 per suit)
+        # if it is the first turn
+        # if it was called
+        # the player to the left (that you have seen before)
+        # the player to the right (that you have seen before)
         super().__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size, hidden_size)
         self.fc3 = nn.Linear(hidden_size, hidden_size)
+        self.fc4 = nn.Linear(hidden_size, hidden_size)
         # Output: DRAW, DRAW_DISCARD, CALL
-        self.fc4 = nn.Linear(hidden_size, 3)
+        self.fc5 = nn.Linear(hidden_size, 3)
     
     def forward(self, x):
         x = F.leaky_relu(self.fc1(x))
         x = F.leaky_relu(self.fc2(x))
         x = F.leaky_relu(self.fc3(x))
-        return self.fc4(x)
+        x = F.leaky_relu(self.fc4(x))
+        return self.fc5(x)
 
 # neural network that takes the input cards and outputs the position to swap
 class SwapNN(nn.Module):
-    def __init__(self, input_size: int = 40 * 4 + 4, hidden_size: int = 128 * 2):
+    def __init__(self, input_size: int = 4 * 4 + 4, hidden_size: int = 128):
+        # input is 3 hand cards, 1 drawn card, 4 expected values (1 per suit)
         super().__init__()
         self.fc1: nn.Linear = nn.Linear(input_size, hidden_size)
         self.fc2: nn.Linear = nn.Linear(hidden_size, hidden_size)
@@ -141,7 +152,9 @@ class AIAgent(Agent):
         return torch.cat((
             self._encode_cards(state.hands[state.turn] + [state.discard[-1]]),
             torch.tensor(probability.expected_values(state), dtype=torch.float),
-            torch.tensor([state.first_turn, state.called], dtype=torch.float) 
+            torch.tensor([state.first_turn, state.called], dtype=torch.float),
+            self._encode_cards(state.hands[(state.turn + len(state.hands) + 1) % len(state.hands)], visible=False), # encode the person to the left (the next player)
+            self._encode_cards(state.hands[(state.turn + len(state.hands) - 1) % len(state.hands)], visible=False) # encode the person to the right (the previous player)
         ))
 
     def _encode_swap_state(self, state: State, drawn_card: Card) -> torch.Tensor:
@@ -151,17 +164,15 @@ class AIAgent(Agent):
         ))
     
     # each cards is represented as a 40 bit value
-    def _encode_cards(self, cards: list[Card]) -> torch.Tensor:
-        encoding = torch.zeros(len(cards) * 40, dtype=torch.float)
+    def _encode_cards(self, cards: list[Card], visible: bool = True) -> torch.Tensor:
+        encoding = torch.zeros(len(cards) * 4, dtype=torch.float)
         
         for i, card in enumerate(cards):
-            idx: int = card.val - 2
-            idx += card.suit.value * 10
-
-            encoding[i * 40 + idx] = 1.0
+            if visible or card.visible:
+                encoding[i * 4 + card.suit.value] = card.val
         
         return encoding
-
+    
     def take_turn(self, state: State) -> tuple[Action, int]:
         target_action: tuple[Action, int] = None
 
@@ -225,8 +236,6 @@ class AIAgent(Agent):
             idx = random.randint(0, 2)
         
         return (action, idx)
-
-    # TODO: implement training
 
     def flush_experience(self):
         self.experiences = []

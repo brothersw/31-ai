@@ -77,7 +77,7 @@ def run_training(players: list[Agent]):
 
     win_history = [[] for _ in players]
     
-    batches = 100
+    batches = 200
     for i in range(batches):
         for _ in range(1000):
             # Get players with lives remaining

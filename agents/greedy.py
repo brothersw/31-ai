@@ -6,10 +6,12 @@ from game.action import Action
 # It counts cards that are in the discard pile and that are already seen
 class Greedy(Agent):
     def take_first_turn(self, state: State) -> tuple[Action, int]:
-        raise NotImplementedError()
+        # just take a turn like normal, it will never need to handle under the gun in the first turn
+        return self.take_turn(state)
     
     def take_turn(self, state: State) -> tuple[Action, int]:
         raise NotImplementedError()
     
     def take_last_turn(self, state: State) -> tuple[Action, int]:
-        raise NotImplementedError()
+        # just take a turn like normal, it will never "call"
+        return self.take_turn(state)
