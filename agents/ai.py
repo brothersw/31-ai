@@ -117,7 +117,7 @@ class SwapNN(nn.Module):
 
 class AIAgent(Agent):
     # TODO: fix adding in the models as parameters in order to use multiple agents in training while sharing the same models
-    def __init__(self, action_nn: ActionNN = ActionNN(), swap_nn: SwapNN = SwapNN(), epsilon: float = 0.05):
+    def __init__(self, action_nn: ActionNN = ActionNN(), swap_nn: SwapNN = SwapNN(), epsilon: float = 0.04):
         super().__init__()
         self.action_model: ActionNN = action_nn
         self.swap_model: SwapNN = swap_nn
@@ -151,7 +151,7 @@ class AIAgent(Agent):
     def _encode_basic_state(self, state: State) -> torch.Tensor:
         return torch.cat((
             self._encode_cards(state.hands[state.turn] + [state.discard[-1]]),
-            torch.tensor(probability.expected_values(state), dtype=torch.float),
+            torch.tensor(probability.expected_values(state, see_hand=True), dtype=torch.float),
             torch.tensor([state.first_turn, state.called], dtype=torch.float),
             self._encode_cards(state.hands[(state.turn + len(state.hands) + 1) % len(state.hands)], visible=False), # encode the person to the left (the next player)
             self._encode_cards(state.hands[(state.turn + len(state.hands) - 1) % len(state.hands)], visible=False) # encode the person to the right (the previous player)
@@ -160,7 +160,7 @@ class AIAgent(Agent):
     def _encode_swap_state(self, state: State, drawn_card: Card) -> torch.Tensor:
         return torch.cat((
             self._encode_cards(state.hands[state.turn] + [drawn_card]),
-            torch.tensor(probability.expected_values(state), dtype=torch.float)
+            torch.tensor(probability.expected_values(state, see_hand=True), dtype=torch.float)
         ))
     
     # each cards is represented as a 40 bit value
@@ -180,7 +180,7 @@ class AIAgent(Agent):
         swap_tensor: torch.Tensor | None = None
 
         if random.random() < self.epsilon:
-            # don't save experience for random actions TODO: do I wan't to do this?
+            # don't save experience for random actions
             return self._random_action(state)
         
         with torch.no_grad():

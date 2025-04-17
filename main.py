@@ -4,6 +4,7 @@ from game.game import Game
 from agents.human import Human
 from agents.agent import Agent
 from agents.random import Random
+from agents.greedy import Greedy
 from util import score
 
 # the most important part
@@ -36,7 +37,7 @@ def main():
     #host_game([Human("p1"), Human("p2")])
     #host_game([Random(), Random()])
 
-    run_training([AIAgent(), Random(), Random()])
+    run_training([Greedy(), AIAgent(), Random()])
 
 
 def host_game(players: list[Agent]):

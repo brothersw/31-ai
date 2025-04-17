@@ -8,8 +8,8 @@ import util.score as score
 
 # Agent makes the decision to gain the most points from the next draw based on expected value
 # It counts cards that are in the discard pile and that are already seen
-# It will never call unless it has maximized its score to 31 points
-class Greedy(Agent):
+# It will call if it sees that it can't get a better value on average in the next turn than its current hand
+class Optimizer(Agent):
     def take_first_turn(self, state: State) -> tuple[Action, int]:
         # just take a turn like normal, it will never need to handle under the gun in the first turn
         return self.take_turn(state)
@@ -20,7 +20,7 @@ class Greedy(Agent):
             return (Action.CALL, 0)
 
         discard_card = state.discard[-1]
-        best_action = Action.DRAW
+        best_action = Action.CALL if state.called == -1 else Action.DRAW
         best_idx = 0
         
         test_idx, best_score = self.swap_card(hand, discard_card)
