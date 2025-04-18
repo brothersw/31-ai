@@ -117,7 +117,7 @@ class SwapNN(nn.Module):
 
 class AIAgent(Agent):
     # TODO: fix adding in the models as parameters in order to use multiple agents in training while sharing the same models
-    def __init__(self, action_nn: ActionNN = ActionNN(), swap_nn: SwapNN = SwapNN(), epsilon: float = 0.04):
+    def __init__(self, action_nn: ActionNN = ActionNN(), swap_nn: SwapNN = SwapNN(), epsilon: float = 0.0):
         super().__init__()
         self.action_model: ActionNN = action_nn
         self.swap_model: SwapNN = swap_nn

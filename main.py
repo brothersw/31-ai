@@ -6,6 +6,7 @@ from agents.agent import Agent
 from agents.random import Random
 from agents.greedy import Greedy
 from util import score
+import os
 
 # the most important part
 # also generated from scratch by yours truly
@@ -37,7 +38,7 @@ def main():
     #host_game([Human("p1"), Human("p2")])
     #host_game([Random(), Random()])
 
-    run_training([Greedy(), AIAgent(), Random()])
+    run_training([AIAgent(), Greedy(), Random()])
 
 
 def host_game(players: list[Agent]):
@@ -78,7 +79,7 @@ def run_training(players: list[Agent]):
 
     win_history = [[] for _ in players]
     
-    batches = 200
+    batches = 1000
     for i in range(batches):
         for _ in range(1000):
             # Get players with lives remaining
@@ -99,10 +100,16 @@ def run_training(players: list[Agent]):
             # If only 1 player remains, revive everyone and continue
         
         print(f"Wins for batch {i}: {wins}")
-        for i, w in enumerate(wins):
-            win_history[i].append(w)
+        
+        if i % 100 == 0:
+            print(f"saving checkpoint {i}_checkpoint.pt")
+            players[0].save_checkpoint(f"./{i}_checkpoint.pt")
+        
+        for j, w in enumerate(wins):
+            win_history[j].append(w)
         
         wins = [0] * len(players)
+        
     
     print(f"Global wins: {global_wins}")
 

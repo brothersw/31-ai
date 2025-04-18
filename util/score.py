@@ -26,12 +26,7 @@ def get_rewards(players: list[tuple[Agent, int]], caller: int) -> list[float]:
     for i, (agent, player_score) in enumerate(players):
         reward = 0.0
         
-        # Find a normalized score difference to be between 0 and 1 between the min and max score
-        if min_score == max_score:
-            score_diff = 0.0
-        else:
-            score_diff = (player_score - min_score) / (max_score - min_score)
-        reward += score_diff * 5.0  # performance relative to min_score
+        reward += (player_score - min_score) * 0.5  # performance relative to min_score
         
         if player_score == min_score:
             if i == caller:
@@ -45,10 +40,10 @@ def get_rewards(players: list[tuple[Agent, int]], caller: int) -> list[float]:
             reward += 10.0
         elif i == caller and player_score > min_score:
             # Reward for successful call based on margin of victory
-            reward += 1.0 * score_diff
+            reward += (player_score - min_score) * 0.3
         
         # Progressive penalties based on lives lost
-        lives_penalty = (3 - agent.lives) * -0.5
+        lives_penalty = (3 - agent.lives) * -0.3
         reward += lives_penalty
         
         # Game-ending states
