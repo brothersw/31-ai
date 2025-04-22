@@ -14,7 +14,7 @@ class Game:
     def pick_turn(self) -> bool:
         agent = self.players[self.state.turn]
 
-        #print(self.state)
+        print(self.state)
         
         # under the gun logic
         if self.state.first_turn:

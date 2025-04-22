@@ -35,10 +35,12 @@ b@J"Y@@@@@N@@@W;` 't@@@@@Qc`   `g@@@@@@Q!
 ''')
 
 def main():
-    #host_game([Human("p1"), Human("p2")])
+    players = [AIAgent(), Human("p2")]
+    players[0].load_checkpoint("./300_checkpoint.pt")
+    host_game(players)
     #host_game([Random(), Random()])
 
-    run_training([AIAgent(), Greedy(), Random()])
+    #run_training([AIAgent(), Greedy(), Random()])
 
 
 def host_game(players: list[Agent]):
