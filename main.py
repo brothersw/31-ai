@@ -55,6 +55,8 @@ def run_game(players: list[Agent]) -> Agent:
         run_round(players)
         check_lives(players)
         cycle_agents(players)
+        print("End of round: ")
+        print(players)
     
     assert len(players) == 1
     
@@ -75,7 +77,7 @@ def check_lives(players: list[Agent]):
 
 def run_training(players: list[Agent]):
     print_menu()
-    active_players = players.copy() # XXX: do I need to copy?
+    active_players = players.copy()
     wins = [0 for i in range(len(players))]
     global_wins = wins.copy()
 
@@ -86,6 +88,8 @@ def run_training(players: list[Agent]):
         for _ in range(1000):
             # Get players with lives remaining
             active_players = [p for p in active_players if p.lives > 0]
+            
+            # If only 1 player remains, revive everyone and distribute wins
             if len(active_players) <= 1:
                 assert len(active_players) == 1
 
@@ -94,12 +98,10 @@ def run_training(players: list[Agent]):
 
                 for player in players:
                     player.revive()
-                    active_players = players.copy()  # XXX: do I need to copy?
+                    active_players = players.copy()
             
-            # Only run round if more than 1 player has lives
             run_round(active_players)
             cycle_agents(active_players)
-            # If only 1 player remains, revive everyone and continue
         
         print(f"Wins for batch {i}: {wins}")
         

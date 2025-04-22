@@ -116,11 +116,10 @@ class SwapNN(nn.Module):
         return self.fc4(x)
 
 class AIAgent(Agent):
-    # TODO: fix adding in the models as parameters in order to use multiple agents in training while sharing the same models
-    def __init__(self, action_nn: ActionNN = ActionNN(), swap_nn: SwapNN = SwapNN(), epsilon: float = 0.0):
+    def __init__(self, epsilon: float = 0.0):
         super().__init__()
-        self.action_model: ActionNN = action_nn
-        self.swap_model: SwapNN = swap_nn
+        self.action_model: ActionNN = ActionNN()
+        self.swap_model: SwapNN = SwapNN()
         self.action_optimizer: torch.optim.Adam = torch.optim.Adam(self.action_model.parameters(), lr=0.0003)
         self.swap_optimizer: torch.optim.Adam = torch.optim.Adam(self.swap_model.parameters(), lr=0.0003)
         self.epsilon: float = epsilon
@@ -252,7 +251,6 @@ class AIAgent(Agent):
     # trains on an entire game based on the reward
     # flushes the experience buffer
     def train(self, reward: float):
-        #print("Starting training")
         # Skip if no experiences to train on
         if not self.experiences:
             return
@@ -268,7 +266,6 @@ class AIAgent(Agent):
 
         # Convert rewards to tensor
         rewards: torch.Tensor = torch.tensor(discounted_rewards, dtype=torch.float32)
-        # XXX: should I normalize the rewards? idk if that is actually a good idea
         
         # Train action network
         action_states: torch.Tensor = torch.stack([exp['state'] for exp in self.experiences])

@@ -30,10 +30,10 @@ class State:
                 deck.append(Card(i, e))
             
             # face cards
-            for _ in range(0, 4):
-                deck.append(Card(10, e))
+            for f in ["10", "J", "Q", "K"]:
+                deck.append(Card(10, e, val_name=f))
             # ace
-            deck.append(Card(11, e))
+            deck.append(Card(11, e, val_name="A"))
 
         random.shuffle(deck)
         return deck

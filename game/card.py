@@ -7,7 +7,8 @@ class Suit(Enum):
     HEART = 3
 
 class Card:
-    def __init__(self, val: int, suit: Suit):
+    def __init__(self, val: int, suit: Suit, val_name: None | str = None):
+        self.val_name = val_name
         self.val: int = val
         self.suit: Suit = suit
         self.visible: bool = False
@@ -23,8 +24,10 @@ class Card:
                 char = "D"
             case Suit.HEART:
                 char = "H"
+        
+        display_value = self.val_name if self.val_name is not None else self.val
 
         if self.visible:
-            return f" {char}:{self.val} "
+            return f" {char}:{display_value} "
         else:
-            return f"#{char}:{self.val}#"
+            return f"#{char}:{display_value}#"
