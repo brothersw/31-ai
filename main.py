@@ -36,10 +36,9 @@ b@J"Y@@@@@N@@@W;` 't@@@@@Qc`   `g@@@@@@Q!
 
 def main():
     players = [AIAgent(), Human("p2")]
-    players[0].load_checkpoint("./300_checkpoint.pt")
+    players[0].load_checkpoint("./200_checkpoint.pt", epsilon=0.0)
     host_game(players)
-    #host_game([Random(), Random()])
-
+    
     #run_training([AIAgent(), Greedy(), Random()])
 
 
@@ -52,7 +51,7 @@ def host_game(players: list[Agent]):
 # runs a game and returns the winner
 def run_game(players: list[Agent]) -> Agent:
     while len(players) > 1:
-        run_round(players)
+        run_round(players, True)
         check_lives(players)
         cycle_agents(players)
         print("End of round: ")
@@ -83,7 +82,7 @@ def run_training(players: list[Agent]):
 
     win_history = [[] for _ in players]
     
-    batches = 1000
+    batches = 400
     for i in range(batches):
         for _ in range(1000):
             # Get players with lives remaining
@@ -100,15 +99,15 @@ def run_training(players: list[Agent]):
                     player.revive()
                     active_players = players.copy()
             
-            run_round(active_players)
+            run_round(active_players, False)
             cycle_agents(active_players)
         
         print(f"Wins for batch {i}: {wins}")
         
-        if i % 100 == 0:
+        if i % 50 == 0:
             print(f"saving checkpoint {i}_checkpoint.pt")
             players[0].save_checkpoint(f"./{i}_checkpoint.pt")
-        
+
         for j, w in enumerate(wins):
             win_history[j].append(w)
         
@@ -118,22 +117,24 @@ def run_training(players: list[Agent]):
     print(f"Global wins: {global_wins}")
 
     #players[0].plot_metrics()
+    players[0].plot_rolling_average()
     
     for i, w in enumerate(win_history):
-        plt.plot(range(batches), w, label=f"Player {i}")
+        plt.plot(range(batches), w, label=f"Player {i} {type(players[i])}")
     
-    plt.xlabel('Batch')
-    plt.ylabel('Wins in batch')
+    plt.xlabel('Batch # (1 batch = 1000 rounds)')
+    plt.ylabel('Wins/Batch')
     plt.grid(True)
+    plt.legend()
     plt.show()
 
 
 # runs a full round of the game
-def run_round(players: list[Agent]):
+def run_round(players: list[Agent], printing: bool):
     game = Game(players)
     
     while True:
-        to_end = game.pick_turn()
+        to_end = game.pick_turn(print_state=printing)
         if to_end:
             break
     

@@ -11,10 +11,12 @@ class Game:
     
     # the main game runner that picks the turn for the agent to take
     # if the game is ended, returns true
-    def pick_turn(self) -> bool:
+    def pick_turn(self, print_state: bool = False) -> bool:
         agent = self.players[self.state.turn]
-
-        print(self.state)
+        
+        if print_state:
+            print("Pre turn state:")
+            print(self.state)
         
         # under the gun logic
         if self.state.first_turn:
@@ -33,6 +35,10 @@ class Game:
         
         self._take_action(action)
         self._next_turn()
+        
+        if print_state:
+            print("Post turn state:")
+            print(self.state)
 
         # if the game is ending normally
         return self.state.called == self.state.turn

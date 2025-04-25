@@ -71,6 +71,58 @@ class TrainingMetrics:
 
         plt.tight_layout()
         plt.show()
+    
+    def plot_rolling_average(self, window_size: int):
+        import matplotlib.pyplot as plt
+        
+        def rolling_average(data, window):
+            return [
+                sum(data[i:i+window])/window 
+                for i in range(len(data)-window+1)
+            ]
+
+        # Create figure with subplots
+        fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(10, 12))
+        fig.suptitle('Training Metrics (Rolling Average)')
+
+        # Plot action losses
+        if len(self.action_losses) >= window_size:
+            rolling_action = rolling_average(self.action_losses, window_size)
+            ax1.plot(rolling_action, label=f'Action Loss (Avg {window_size})')
+            ax1.set_ylabel('Loss')
+            ax1.set_title('Action Network Loss')
+            ax1.grid(True)
+            ax1.legend()
+
+        # Plot swap losses 
+        if len(self.swap_losses) >= window_size:
+            rolling_swap = rolling_average(self.swap_losses, window_size)
+            ax2.plot(rolling_swap, label=f'Swap Loss (Avg {window_size})')
+            ax2.set_ylabel('Loss')
+            ax2.set_title('Swap Network Loss')
+            ax2.grid(True)
+            ax2.legend()
+
+        # Plot rewards
+        if len(self.rewards) >= window_size:
+            rolling_rewards = rolling_average(self.rewards, window_size)
+            ax3.plot(rolling_rewards, label=f'Reward (Avg {window_size})')
+            ax3.set_ylabel('Reward')
+            ax3.set_title('Episode Rewards')
+            ax3.grid(True)
+            ax3.legend()
+
+        # Plot episode lengths
+        if len(self.episode_lengths) >= window_size:
+            rolling_lengths = rolling_average(self.episode_lengths, window_size)
+            ax4.plot(rolling_lengths, label=f'Length (Avg {window_size})')
+            ax4.set_ylabel('Steps')
+            ax4.set_title('Episode Lengths')
+            ax4.grid(True)
+            ax4.legend()
+
+        plt.tight_layout()
+        plt.show()
 
 # neural network to select the action to take
 class ActionNN(nn.Module):
@@ -100,7 +152,7 @@ class ActionNN(nn.Module):
 
 # neural network that takes the input cards and outputs the position to swap
 class SwapNN(nn.Module):
-    def __init__(self, input_size: int = 4 * 4 + 4, hidden_size: int = 128):
+    def __init__(self, input_size: int = 4 * 4 + 4 + 4 * 3, hidden_size: int = 128 * 2):
         # input is 3 hand cards, 1 drawn card, 4 expected values (1 per suit)
         super().__init__()
         self.fc1: nn.Linear = nn.Linear(input_size, hidden_size)
@@ -116,7 +168,7 @@ class SwapNN(nn.Module):
         return self.fc4(x)
 
 class AIAgent(Agent):
-    def __init__(self, epsilon: float = 0.0):
+    def __init__(self, epsilon: float = 0.04):
         super().__init__()
         self.action_model: ActionNN = ActionNN()
         self.swap_model: SwapNN = SwapNN()
@@ -139,13 +191,16 @@ class AIAgent(Agent):
         torch.save(checkpoint, path)
 
     # load the model weights and optimizer states from a file
-    def load_checkpoint(self, path: str):
+    def load_checkpoint(self, path: str, epsilon: None | float = None):
         checkpoint = torch.load(path)
         self.action_model.load_state_dict(checkpoint['action_model'])
         self.swap_model.load_state_dict(checkpoint['swap_model'])
         self.action_optimizer.load_state_dict(checkpoint['action_optimizer'])
         self.swap_optimizer.load_state_dict(checkpoint['swap_optimizer'])
-        self.epsilon = checkpoint['epsilon']
+        if epsilon is not None:
+            self.epsilon = epsilon
+        else:
+            self.epsilon = checkpoint['epsilon']
     
     def _encode_basic_state(self, state: State) -> torch.Tensor:
         return torch.cat((
@@ -159,7 +214,8 @@ class AIAgent(Agent):
     def _encode_swap_state(self, state: State, drawn_card: Card) -> torch.Tensor:
         return torch.cat((
             self._encode_cards(state.hands[state.turn] + [drawn_card]),
-            torch.tensor(probability.expected_values(state, see_hand=True), dtype=torch.float)
+            torch.tensor(probability.expected_values(state, see_hand=True), dtype=torch.float),
+            self._encode_cards(state.hands[(state.turn + len(state.hands) + 1) % len(state.hands)], visible=False) # encode the person to the left (the next player)
         ))
     
     # each cards is represented as a 40 bit value
@@ -303,10 +359,13 @@ class AIAgent(Agent):
             self.swap_optimizer.step()
         
         # I don't always want to save the metrics
-        # self.metrics.add_metrics(action_loss, swap_loss, reward, len(self.experiences))
+        self.metrics.add_metrics(action_loss, swap_loss, reward, len(self.experiences))
         
         # Clear experiences after training
         self.flush_experience()
     
     def plot_metrics(self):
         self.metrics.plot_metrics()
+    
+    def plot_rolling_average(self):
+        self.metrics.plot_rolling_average(200)
